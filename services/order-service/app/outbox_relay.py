@@ -10,6 +10,8 @@ from .events import EXCHANGE
 def publish_batch(repo, channel) -> int:
     # Single relay replica assumed: fetch_unpublished takes no row locks,
     # so a second replica would double-publish. Consumers are idempotent anyway.
+    # A crash between publish and mark_published republishes the whole batch,
+    # not just the in-flight row; same idempotency guarantee absorbs it.
     rows = repo.fetch_unpublished()
     for _id, routing_key, body in rows:
         channel.basic_publish(
