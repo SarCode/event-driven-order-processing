@@ -8,5 +8,6 @@ venv/
 terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
+terraform/orders-config
 .env
 .DS_Store
