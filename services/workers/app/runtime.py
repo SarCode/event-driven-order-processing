@@ -126,6 +126,10 @@ def run_consumer(*, url: str, dsn: str, queue: str, bindings: tuple[str, ...], c
             ch.basic_consume(queue=queue, on_message_callback=on_message)
             print(f"{consumer_name} consuming {queue}", flush=True)
             ch.start_consuming()
-        except pika.exceptions.AMQPError as exc:
+        # psycopg errors escape on_message via start_consuming; treat them like
+        # broker hiccups: reconnect and let redelivery plus the idempotency ledger
+        # sort it out. A crash between publish and mark still means the handler
+        # reruns with fresh event_ids, an accepted at-least-once tradeoff here.
+        except (pika.exceptions.AMQPError, psycopg.Error) as exc:
             print(f"{consumer_name} amqp error, reconnecting: {exc}", flush=True)
             time.sleep(2)
