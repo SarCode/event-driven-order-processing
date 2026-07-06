@@ -39,6 +39,7 @@ services:
 
   inventory-worker:
     build: ../../services/inventory-worker
+    restart: on-failure
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
     depends_on:
