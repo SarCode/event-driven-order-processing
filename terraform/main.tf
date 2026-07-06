@@ -31,6 +31,7 @@ resource "helm_release" "rabbitmq" {
   name       = "rabbitmq"
   repository = "oci://registry-1.docker.io/bitnamicharts"
   chart      = "rabbitmq"
+  version    = "16.0.14"
   namespace  = kubernetes_namespace.orders.metadata[0].name
 
   set {
@@ -41,6 +42,8 @@ resource "helm_release" "rabbitmq" {
     name  = "auth.password"
     value = "orders-dev-password"
   }
+  # Bitnami moved charts to OCI and put current images behind Broadcom's paid registry (Aug 2025).
+  # bitnamilegacy images are a temporary free stopgap; revisit before any non-local use.
   set {
     name  = "image.repository"
     value = "bitnamilegacy/rabbitmq"
@@ -55,6 +58,7 @@ resource "helm_release" "postgresql" {
   name       = "postgres"
   repository = "oci://registry-1.docker.io/bitnamicharts"
   chart      = "postgresql"
+  version    = "18.7.11"
   namespace  = kubernetes_namespace.orders.metadata[0].name
 
   set {
@@ -69,6 +73,8 @@ resource "helm_release" "postgresql" {
     name  = "auth.database"
     value = "orders"
   }
+  # Bitnami moved charts to OCI and put current images behind Broadcom's paid registry (Aug 2025).
+  # bitnamilegacy images are a temporary free stopgap; revisit before any non-local use.
   set {
     name  = "image.repository"
     value = "bitnamilegacy/postgresql"
