@@ -26,6 +26,7 @@ services:
 
   order-service:
     build: ../../services/order-service
+    restart: on-failure
     environment:
       DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
