@@ -8,7 +8,10 @@ wait_for_status() {
   want="$2"
   status=""
   for _ in $(seq 1 30); do
-    status=$(curl -sf "$BASE_URL/orders/$order_id" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+    # || true keeps transient curl/grep failures (port-forward hiccups,
+    # service still starting) inside the retry loop instead of killing
+    # the whole script via set -e.
+    status=$(curl -sf "$BASE_URL/orders/$order_id" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || true)
     if [ "$status" = "$want" ]; then
       echo "order $order_id reached $want"
       return 0
