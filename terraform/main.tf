@@ -60,6 +60,12 @@ resource "helm_release" "rabbitmq" {
     name  = "metrics.serviceMonitor.enabled"
     value = "true"
   }
+  # Per-queue labels (queue="orders.dlq" etc) require per-object metrics;
+  # the default endpoint only aggregates. Dashboard and DLQ alert depend on this.
+  set {
+    name  = "extraConfiguration"
+    value = "prometheus.return_per_object_metrics = true"
+  }
 }
 
 resource "helm_release" "postgresql" {
