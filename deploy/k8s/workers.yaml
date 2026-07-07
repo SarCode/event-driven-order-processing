@@ -1,3 +1,5 @@
+# No liveness probes on consumers: no HTTP surface to probe. Failure modes
+# exit the process (see runtime.py reconnect handling) and Kubernetes restarts.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,6 +23,13 @@ spec:
           envFrom:
             - secretRef:
                 name: app-credentials
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,6 +54,13 @@ spec:
           envFrom:
             - secretRef:
                 name: app-credentials
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -69,3 +85,10 @@ spec:
           envFrom:
             - secretRef:
                 name: app-credentials
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
