@@ -35,22 +35,29 @@ def main() -> None:
                 ch.queue_bind(queue=QUEUE, exchange=EXCHANGE, routing_key=routing_key)
 
             def on_message(channel, method, properties, body):
-                event = json.loads(body)
-                status = decide_status(event["event_type"])
-                if status is not None:
-                    with psycopg.connect(dsn) as db:
-                        db.execute(
-                            "UPDATE orders SET status = %s WHERE order_id = %s",
-                            (status, event["order_id"]),
-                        )
-                print(f"status: order {event['order_id']} -> {status}", flush=True)
+                try:
+                    event = json.loads(body)
+                    status = decide_status(event["event_type"])
+                    if status is not None:
+                        with psycopg.connect(dsn) as db:
+                            db.execute(
+                                "UPDATE orders SET status = %s WHERE order_id = %s",
+                                (status, event["order_id"]),
+                            )
+                    print(f"status: order {event.get('order_id')} -> {status}", flush=True)
+                except (ValueError, KeyError, TypeError) as exc:
+                    # Malformed message: ack and drop rather than crash-loop.
+                    # This minimal loop deliberately has no DLQ (see plan tradeoffs);
+                    # psycopg errors are NOT caught here so they escape to the
+                    # reconnect handler below and the message gets redelivered.
+                    print(f"status-consumer dropping malformed message: {exc}", flush=True)
                 channel.basic_ack(delivery_tag=method.delivery_tag)
 
             ch.basic_qos(prefetch_count=1)
             ch.basic_consume(queue=QUEUE, on_message_callback=on_message)
             print("status-consumer consuming", flush=True)
             ch.start_consuming()
-        except pika.exceptions.AMQPError as exc:
+        except (pika.exceptions.AMQPError, psycopg.Error) as exc:
             print(f"status-consumer amqp error, reconnecting: {exc}", flush=True)
             time.sleep(2)
 
