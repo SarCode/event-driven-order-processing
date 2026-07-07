@@ -1,8 +1,11 @@
-.PHONY: test up down smoke build kind-load deploy-k8s smoke-k8s
+.PHONY: test lint up down smoke build kind-load deploy-k8s smoke-k8s
 
 test:
 	cd services/order-service && .venv/bin/python -m pytest tests -v
 	cd services/workers && .venv/bin/python -m pytest tests -v
+
+lint:
+	services/order-service/.venv/bin/ruff check .
 
 up:
 	docker compose -f deploy/compose/docker-compose.yaml up --build -d

@@ -1,6 +1,5 @@
 import psycopg
 import pytest
-
 from app.db import OrderRepository
 
 

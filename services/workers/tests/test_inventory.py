@@ -1,5 +1,4 @@
 import psycopg
-
 from app.inventory import PostgresInventoryStore, make_handler
 
 

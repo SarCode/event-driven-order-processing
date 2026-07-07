@@ -2,7 +2,6 @@ import json
 
 import psycopg
 import pytest
-
 from app.runtime import ProcessedStore, connect_with_retry, parse_event
 
 

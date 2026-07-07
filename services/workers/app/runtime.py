@@ -108,7 +108,9 @@ def declare_topology(channel, queue: str, bindings: tuple[str, ...]) -> None:
         channel.queue_bind(queue=queue, exchange=EXCHANGE, routing_key=routing_key)
 
 
-def run_consumer(*, url: str, dsn: str, queue: str, bindings: tuple[str, ...], consumer_name: str, handler) -> None:
+def run_consumer(
+    *, url: str, dsn: str, queue: str, bindings: tuple[str, ...], consumer_name: str, handler
+) -> None:
     """At-least-once consumer. Poison messages (parse or handler failure)
     are dead-lettered immediately; duplicates are skipped via ProcessedStore.
     handler(event) returns a list of {"routing_key": str, "body": dict} to publish."""

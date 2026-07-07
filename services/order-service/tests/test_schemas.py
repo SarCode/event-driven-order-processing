@@ -1,7 +1,6 @@
 import pytest
-from pydantic import ValidationError
-
 from app.schemas import Order, OrderRequest
+from pydantic import ValidationError
 
 
 def test_valid_order_request():
