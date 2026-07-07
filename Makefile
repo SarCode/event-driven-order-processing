@@ -1,4 +1,4 @@
-.PHONY: test lint up down smoke build kind-load deploy-k8s smoke-k8s grafana
+.PHONY: test lint up down smoke build kind-load deploy-k8s smoke-k8s grafana load
 
 test:
 	cd services/order-service && .venv/bin/python -m pytest tests -v
@@ -40,3 +40,8 @@ smoke-k8s:
 
 grafana:
 	kubectl -n monitoring port-forward svc/kps-grafana 3000:80
+
+load:
+	kubectl -n orders port-forward svc/order-service 8000:8000 & \
+	sleep 3 && k6 run scripts/load.js; \
+	kill %1
