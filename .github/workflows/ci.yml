@@ -69,6 +69,8 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve
+      - name: Export kubeconfig for kubectl
+        run: kind export kubeconfig --name orders
       - name: Build images and load into kind
         run: make kind-load
       - name: Deploy app manifests
