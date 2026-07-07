@@ -3,12 +3,16 @@ import time
 
 import pika
 import psycopg
+from prometheus_client import Counter, start_http_server
 
 EXCHANGE = "orders"
 DLX = "orders.dlx"
 DLQ = "orders.dlq"
 
 REQUIRED_KEYS = {"event_id", "event_type", "order_id", "sku", "quantity"}
+
+EVENTS_PROCESSED = Counter("events_processed", "Events handled", ["consumer"])
+EVENTS_DEADLETTERED = Counter("events_deadlettered", "Events sent to DLQ", ["consumer"])
 
 PROCESSED_DDL = """
 CREATE TABLE IF NOT EXISTS processed_events (
@@ -116,6 +120,7 @@ def run_consumer(
     handler(event) returns a list of {"routing_key": str, "body": dict} to publish."""
     processed = ProcessedStore(dsn)
     processed.init_schema()
+    start_http_server(9464)
     while True:
         try:
             conn = connect_with_retry(url)
@@ -132,6 +137,7 @@ def run_consumer(
                 except Exception as exc:
                     print(f"{consumer_name} dead-lettering message: {exc}", flush=True)
                     channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                    EVENTS_DEADLETTERED.labels(consumer=consumer_name).inc()
                     return
                 for out in results:
                     channel.basic_publish(
@@ -141,6 +147,7 @@ def run_consumer(
                         properties=pika.BasicProperties(delivery_mode=2),
                     )
                 processed.mark(consumer_name, event["event_id"])
+                EVENTS_PROCESSED.labels(consumer=consumer_name).inc()
                 channel.basic_ack(delivery_tag=method.delivery_tag)
 
             ch.basic_qos(prefetch_count=1)

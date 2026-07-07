@@ -2,9 +2,12 @@ import os
 import time
 
 import pika
+from prometheus_client import Counter, start_http_server
 
 from .db import OrderRepository
 from .events import EXCHANGE
+
+OUTBOX_PUBLISHED = Counter("outbox_published", "Outbox rows published")
 
 
 def publish_batch(repo, channel) -> int:
@@ -20,6 +23,7 @@ def publish_batch(repo, channel) -> int:
             body=body.encode(),
             properties=pika.BasicProperties(delivery_mode=2),
         )
+        OUTBOX_PUBLISHED.inc()
     repo.mark_published([row[0] for row in rows])
     return len(rows)
 
@@ -27,6 +31,7 @@ def publish_batch(repo, channel) -> int:
 def main() -> None:
     repo = OrderRepository(os.environ["DATABASE_URL"])
     repo.init_schema()
+    start_http_server(9464)
     while True:
         try:
             conn = pika.BlockingConnection(pika.URLParameters(os.environ["RABBITMQ_URL"]))

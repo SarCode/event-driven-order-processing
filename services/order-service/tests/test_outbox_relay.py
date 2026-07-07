@@ -1,4 +1,4 @@
-from app.outbox_relay import publish_batch
+from app.outbox_relay import OUTBOX_PUBLISHED, publish_batch
 
 
 class FakeRepo:
@@ -31,9 +31,11 @@ def test_publish_batch_empty_returns_zero():
 def test_publish_batch_publishes_and_marks():
     rows = [(1, "order.created", '{"a": 1}'), (2, "order.created", '{"b": 2}')]
     repo, ch = FakeRepo(rows), FakeChannel()
+    before = OUTBOX_PUBLISHED._value.get()
     assert publish_batch(repo, ch) == 2
     assert ch.published == [
         ("orders", "order.created", b'{"a": 1}'),
         ("orders", "order.created", b'{"b": 2}'),
     ]
     assert repo.marked == [1, 2]
+    assert OUTBOX_PUBLISHED._value.get() - before == 2.0

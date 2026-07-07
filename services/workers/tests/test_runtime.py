@@ -2,7 +2,13 @@ import json
 
 import psycopg
 import pytest
-from app.runtime import ProcessedStore, connect_with_retry, parse_event
+from app.runtime import (
+    EVENTS_DEADLETTERED,
+    EVENTS_PROCESSED,
+    ProcessedStore,
+    connect_with_retry,
+    parse_event,
+)
 
 
 class FakeSchemaConn:
@@ -148,3 +154,17 @@ def test_connect_with_retry_raises_when_exhausted():
             sleep=lambda _s: None,
             connector=connector,
         )
+
+
+def test_events_processed_counter_increments_per_consumer():
+    before = EVENTS_PROCESSED.labels(consumer="test-consumer")._value.get()
+    EVENTS_PROCESSED.labels(consumer="test-consumer").inc()
+    after = EVENTS_PROCESSED.labels(consumer="test-consumer")._value.get()
+    assert after - before == 1.0
+
+
+def test_events_deadlettered_counter_increments_per_consumer():
+    before = EVENTS_DEADLETTERED.labels(consumer="test-consumer")._value.get()
+    EVENTS_DEADLETTERED.labels(consumer="test-consumer").inc()
+    after = EVENTS_DEADLETTERED.labels(consumer="test-consumer")._value.get()
+    assert after - before == 1.0

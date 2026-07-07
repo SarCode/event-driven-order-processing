@@ -4,6 +4,7 @@ import time
 
 import pika
 import psycopg
+from prometheus_client import Counter, start_http_server
 
 from .events import EXCHANGE
 
@@ -16,6 +17,8 @@ STATUS_BY_EVENT = {
     "payment.failed": "rejected",
 }
 
+ORDER_STATUS_UPDATES = Counter("order_status_updates", "Status updates applied", ["status"])
+
 
 def decide_status(event_type: str) -> str | None:
     return STATUS_BY_EVENT.get(event_type)
@@ -25,6 +28,7 @@ def main() -> None:
     """Minimal consume loop, duplicated from the workers runtime because this
     process ships in the order-service image and cannot import it."""
     dsn = os.environ["DATABASE_URL"]
+    start_http_server(9464)
     while True:
         try:
             conn = pika.BlockingConnection(pika.URLParameters(os.environ["RABBITMQ_URL"]))
@@ -44,6 +48,7 @@ def main() -> None:
                                 "UPDATE orders SET status = %s WHERE order_id = %s",
                                 (status, event["order_id"]),
                             )
+                        ORDER_STATUS_UPDATES.labels(status=status).inc()
                     print(f"status: order {event.get('order_id')} -> {status}", flush=True)
                 except (ValueError, KeyError, TypeError) as exc:
                     # Malformed message: ack and drop rather than crash-loop.
