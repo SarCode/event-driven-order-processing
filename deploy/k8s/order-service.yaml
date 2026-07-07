@@ -22,8 +22,6 @@ spec:
           env:
             - name: DATABASE_URL
               value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
-            - name: RABBITMQ_URL
-              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F
           readinessProbe:
             httpGet:
               path: /healthz

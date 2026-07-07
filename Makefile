@@ -26,6 +26,11 @@ deploy-k8s:
 
 smoke-k8s:
 	kubectl -n orders rollout status deploy/order-service --timeout=120s
+	kubectl -n orders rollout status deploy/outbox-relay --timeout=120s
+	kubectl -n orders rollout status deploy/status-consumer --timeout=120s
+	kubectl -n orders rollout status deploy/inventory-worker --timeout=120s
+	kubectl -n orders rollout status deploy/payment-worker --timeout=120s
+	kubectl -n orders rollout status deploy/notification-worker --timeout=120s
 	kubectl -n orders port-forward svc/order-service 8000:8000 & \
 	sleep 3 && ./scripts/smoke.sh; \
 	kill %1

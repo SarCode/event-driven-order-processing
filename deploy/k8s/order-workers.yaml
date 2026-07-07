@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outbox-relay
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: outbox-relay
+  template:
+    metadata:
+      labels:
+        app: outbox-relay
+    spec:
+      containers:
+        - name: outbox-relay
+          image: orders/order-service:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "app.outbox_relay"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+            - name: RABBITMQ_URL
+              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: status-consumer
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: status-consumer
+  template:
+    metadata:
+      labels:
+        app: status-consumer
+    spec:
+      containers:
+        - name: status-consumer
+          image: orders/order-service:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "app.status_consumer"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+            - name: RABBITMQ_URL
+              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-worker
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-worker
+  template:
+    metadata:
+      labels:
+        app: inventory-worker
+    spec:
+      containers:
+        - name: inventory-worker
+          image: orders/workers:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "app.inventory"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+            - name: RABBITMQ_URL
+              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-worker
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-worker
+  template:
+    metadata:
+      labels:
+        app: payment-worker
+    spec:
+      containers:
+        - name: payment-worker
+          image: orders/workers:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "app.payment"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+            - name: RABBITMQ_URL
+              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-worker
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-worker
+  template:
+    metadata:
+      labels:
+        app: notification-worker
+    spec:
+      containers:
+        - name: notification-worker
+          image: orders/workers:dev
+          imagePullPolicy: Never
+          command: ["python", "-m", "app.notification"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+            - name: RABBITMQ_URL
+              value: amqp://orders:orders-dev-password@rabbitmq:5672/%2F
