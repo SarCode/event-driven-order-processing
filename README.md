@@ -52,8 +52,10 @@ POST /orders -> order-service -> Postgres (orders + outbox, one transaction)
 
 ## Run locally (Docker Compose)
 
-    make up      # build and start postgres, rabbitmq, order-service, inventory-worker
-    make smoke   # POST an order, verify response
+    make up      # build and start the full stack: postgres, rabbitmq,
+                 # order-service, outbox-relay, status-consumer, and the
+                 # inventory/payment/notification workers
+    make smoke   # run all three saga paths, verify final statuses
     make down    # tear down
 
 ## Run on Kubernetes (kind + Terraform)
@@ -71,9 +73,10 @@ Tear down: `cd terraform && terraform destroy`.
 
     make test
 
-Unit tests cover schemas, event serialization, API behavior (with fake
-repo/publisher), and inventory reservation logic. The smoke test covers
-the real integration path end to end.
+Unit tests cover schemas, event serialization, API behavior (with a fake
+repository), the outbox relay batch logic, saga status mapping, consumer
+runtime validation and retry, and all three worker handlers. The smoke
+test covers the real integration path end to end.
 
 ## Roadmap
 
