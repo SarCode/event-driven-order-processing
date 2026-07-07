@@ -16,12 +16,39 @@ stand-ins and deployed to a Terraform-provisioned Kubernetes cluster.
 ## Architecture
 
 ```
-POST /orders -> order-service -> Postgres (orders table)
-                     |
-                     -> RabbitMQ exchange "orders" (order.created)
-                              |
-                              -> queue inventory.order-created -> inventory-worker
+POST /orders -> order-service -> Postgres (orders + outbox, one transaction)
+                                     |
+                     outbox-relay reads outbox -> RabbitMQ "orders" exchange
+                                                        |
+        order.created -> inventory-worker (reserve stock in Postgres)
+                             |-> inventory.reserved -> payment-worker (mock charge)
+                             |                            |-> payment.completed
+                             |                            |-> payment.failed -> inventory-worker releases stock
+                             |-> inventory.rejected
+        inventory.rejected / payment.* -> notification-worker (log)
+        inventory.rejected / payment.* -> status-consumer -> orders.status (confirmed/rejected)
+        poison messages -> orders.dlx -> orders.dlq
 ```
+
+| Event | Producer | Consumers |
+| --- | --- | --- |
+| order.created | outbox-relay | inventory-worker |
+| inventory.reserved | inventory-worker | payment-worker |
+| inventory.rejected | inventory-worker | notification-worker, status-consumer |
+| payment.completed | payment-worker | notification-worker, status-consumer |
+| payment.failed | payment-worker | inventory-worker (compensation), notification-worker, status-consumer |
+
+## Resilience patterns
+
+- **Transactional outbox**: order row and event row commit atomically; a relay
+  process publishes pending events, so an order is never saved without its event.
+- **Saga with compensation**: payment failure releases the reserved stock.
+- **Idempotent consumers**: every consumer records processed event_ids in
+  Postgres and skips duplicates (at-least-once delivery is safe).
+- **Dead-letter queue**: malformed or poison messages are rejected to
+  orders.dlx -> orders.dlq instead of crash-looping consumers.
+- Mock payment rule: orders with quantity >= 50 fail payment (deterministic
+  failure path for demos and tests).
 
 ## Run locally (Docker Compose)
 
@@ -50,8 +77,6 @@ the real integration path end to end.
 
 ## Roadmap
 
-- Phase 2: outbox pattern, idempotent consumers, dead-letter queue, saga,
-  payment and notification workers
 - Phase 3: GitHub Actions CI/CD, images to GHCR, ephemeral kind cluster per PR,
   secrets management, liveness probes and resource limits on app manifests
 - Phase 4: kube-prometheus-stack, custom Grafana dashboards, alert rules,
