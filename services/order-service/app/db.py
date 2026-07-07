@@ -22,15 +22,33 @@ CREATE TABLE IF NOT EXISTS outbox (
 )
 """
 
+# CREATE TABLE IF NOT EXISTS is not atomic against concurrent creators: the
+# API pod and the outbox relay both run init_schema on startup, and on a fresh
+# database the loser hits UniqueViolation (pg_type/pg_class index) or
+# DuplicateTable. The winner's commit makes a retry see the table and no-op.
+SCHEMA_RACE_ERRORS = (psycopg.errors.UniqueViolation, psycopg.errors.DuplicateTable)
+
+
+def create_schema_racing(apply, attempts: int = 3) -> None:
+    for attempt in range(attempts):
+        try:
+            return apply()
+        except SCHEMA_RACE_ERRORS:
+            if attempt == attempts - 1:
+                raise
+
 
 class OrderRepository:
     def __init__(self, dsn: str):
         self._dsn = dsn
 
     def init_schema(self) -> None:
-        with psycopg.connect(self._dsn) as conn:
-            conn.execute(DDL)
-            conn.execute(OUTBOX_DDL)
+        def create():
+            with psycopg.connect(self._dsn) as conn:
+                conn.execute(DDL)
+                conn.execute(OUTBOX_DDL)
+
+        create_schema_racing(create)
 
     def save_with_event(self, order: Order, event_id: str, routing_key: str, body: str) -> None:
         with psycopg.connect(self._dsn) as conn:

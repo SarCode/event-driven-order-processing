@@ -29,6 +29,22 @@ def parse_event(body: bytes) -> dict:
     return event
 
 
+# CREATE TABLE IF NOT EXISTS is not atomic against concurrent creators: two
+# sessions racing on a fresh database can both pass the existence check and
+# collide in the catalogs, surfacing UniqueViolation (pg_type/pg_class index)
+# or DuplicateTable. The winner's commit makes a retry see the table and no-op.
+SCHEMA_RACE_ERRORS = (psycopg.errors.UniqueViolation, psycopg.errors.DuplicateTable)
+
+
+def create_schema_racing(apply, attempts: int = 3) -> None:
+    for attempt in range(attempts):
+        try:
+            return apply()
+        except SCHEMA_RACE_ERRORS:
+            if attempt == attempts - 1:
+                raise
+
+
 def connect_with_retry(
     url: str,
     attempts: int = 30,
@@ -55,8 +71,11 @@ class ProcessedStore:
         self._dsn = dsn
 
     def init_schema(self) -> None:
-        with psycopg.connect(self._dsn) as conn:
-            conn.execute(PROCESSED_DDL)
+        def create():
+            with psycopg.connect(self._dsn) as conn:
+                conn.execute(PROCESSED_DDL)
+
+        create_schema_racing(create)
 
     def seen(self, consumer: str, event_id: str) -> bool:
         with psycopg.connect(self._dsn) as conn:

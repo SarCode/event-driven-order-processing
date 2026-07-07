@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import psycopg
 
-from .runtime import run_consumer
+from .runtime import create_schema_racing, run_consumer
 
 INVENTORY_DDL = """
 CREATE TABLE IF NOT EXISTS inventory (
@@ -20,14 +20,17 @@ class PostgresInventoryStore:
         self._dsn = dsn
 
     def init_schema(self) -> None:
-        with psycopg.connect(self._dsn) as conn:
-            conn.execute(INVENTORY_DDL)
-            for sku, available in SEED.items():
-                conn.execute(
-                    "INSERT INTO inventory (sku, available) VALUES (%s, %s)"
-                    " ON CONFLICT DO NOTHING",
-                    (sku, available),
-                )
+        def create():
+            with psycopg.connect(self._dsn) as conn:
+                conn.execute(INVENTORY_DDL)
+                for sku, available in SEED.items():
+                    conn.execute(
+                        "INSERT INTO inventory (sku, available) VALUES (%s, %s)"
+                        " ON CONFLICT DO NOTHING",
+                        (sku, available),
+                    )
+
+        create_schema_racing(create)
 
     def reserve(self, sku: str, quantity: int) -> bool:
         with psycopg.connect(self._dsn) as conn:

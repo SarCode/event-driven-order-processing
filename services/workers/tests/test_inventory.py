@@ -1,4 +1,36 @@
-from app.inventory import make_handler
+import psycopg
+
+from app.inventory import PostgresInventoryStore, make_handler
+
+
+class FakeSchemaConn:
+    def __init__(self, error=None):
+        self.error = error
+        self.executed = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=None):
+        if self.error is not None:
+            raise self.error
+        self.executed.append(sql)
+
+
+def test_init_schema_retries_after_concurrent_create_race(monkeypatch):
+    race = psycopg.errors.UniqueViolation(
+        'duplicate key value violates unique constraint "pg_type_typname_nsp_index"'
+    )
+    conns = [FakeSchemaConn(error=race), FakeSchemaConn()]
+    monkeypatch.setattr(psycopg, "connect", lambda dsn: conns.pop(0))
+
+    PostgresInventoryStore("postgresql://ignored").init_schema()
+
+    # winner connection ran DDL plus one seed insert per sku
+    assert conns == []
 
 
 class FakeStore:
