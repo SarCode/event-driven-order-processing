@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: orders-alerts
+  namespace: orders
+spec:
+  groups:
+    - name: orders
+      rules:
+        - alert: DeadLetterQueueGrowing
+          expr: rabbitmq_queue_messages{queue="orders.dlq"} > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Messages are sitting in the dead letter queue
+        - alert: ConsumerDown
+          expr: up{namespace="orders"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: An orders service scrape target is down
+        - alert: ApiHighLatency
+          expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{path="/orders"}[10m]))) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: POST /orders p95 latency above 500ms
