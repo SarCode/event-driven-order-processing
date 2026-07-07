@@ -52,6 +52,14 @@ resource "helm_release" "rabbitmq" {
     name  = "global.security.allowInsecureImages"
     value = "true"
   }
+  set {
+    name  = "metrics.enabled"
+    value = "true"
+  }
+  set {
+    name  = "metrics.serviceMonitor.enabled"
+    value = "true"
+  }
 }
 
 resource "helm_release" "postgresql" {
@@ -94,5 +102,38 @@ resource "kubernetes_secret" "app_credentials" {
   data = {
     DATABASE_URL = "postgresql://orders:${var.app_password}@postgres-postgresql:5432/orders"
     RABBITMQ_URL = "amqp://orders:${var.app_password}@rabbitmq:5672/%2F"
+  }
+}
+
+resource "kubernetes_namespace" "monitoring" {
+  metadata {
+    name = "monitoring"
+  }
+}
+
+resource "helm_release" "kube_prometheus_stack" {
+  name       = "kps"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-prometheus-stack"
+  version    = "62.7.0"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  timeout    = 900
+
+  set {
+    name  = "grafana.adminPassword"
+    value = var.app_password
+  }
+  # Scrape PodMonitors/ServiceMonitors from all namespaces without label gating
+  set {
+    name  = "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues"
+    value = "false"
+  }
+  set {
+    name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
+    value = "false"
+  }
+  set {
+    name  = "prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues"
+    value = "false"
   }
 }
