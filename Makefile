@@ -2,7 +2,7 @@
 
 test:
 	cd services/order-service && .venv/bin/python -m pytest tests -v
-	cd services/inventory-worker && .venv/bin/python -m pytest tests -v
+	cd services/workers && .venv/bin/python -m pytest tests -v
 
 up:
 	docker compose -f deploy/compose/docker-compose.yaml up --build -d
@@ -15,11 +15,11 @@ smoke:
 
 build:
 	docker build -t orders/order-service:dev services/order-service
-	docker build -t orders/inventory-worker:dev services/inventory-worker
+	docker build -t orders/workers:dev services/workers
 
 kind-load: build
 	kind load docker-image orders/order-service:dev --name orders
-	kind load docker-image orders/inventory-worker:dev --name orders
+	kind load docker-image orders/workers:dev --name orders
 
 deploy-k8s:
 	kubectl apply -f deploy/k8s/

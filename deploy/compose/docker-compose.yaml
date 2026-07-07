@@ -29,9 +29,32 @@ services:
     restart: on-failure
     environment:
       DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  outbox-relay:
+    build: ../../services/order-service
+    command: ["python", "-m", "app.outbox_relay"]
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  status-consumer:
+    build: ../../services/order-service
+    command: ["python", "-m", "app.status_consumer"]
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,10 +62,40 @@ services:
         condition: service_healthy
 
   inventory-worker:
-    build: ../../services/inventory-worker
+    build: ../../services/workers
+    command: ["python", "-m", "app.inventory"]
     restart: on-failure
     environment:
+      DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
     depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  payment-worker:
+    build: ../../services/workers
+    command: ["python", "-m", "app.payment"]
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notification-worker:
+    build: ../../services/workers
+    command: ["python", "-m", "app.notification"]
+    restart: on-failure
+    environment:
+      DATABASE_URL: postgresql://orders:orders@postgres:5432/orders
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2F
+    depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
