@@ -1,0 +1,28 @@
+name: cd
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push both images
+        run: |
+          repo=$(echo "ghcr.io/${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          for svc in order-service workers; do
+            docker build -t "$repo/$svc:${{ github.sha }}" -t "$repo/$svc:latest" "services/$svc"
+            docker push "$repo/$svc:${{ github.sha }}"
+            docker push "$repo/$svc:latest"
+          done
