@@ -1,8 +1,10 @@
 import os
+import time
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 
+from . import metrics
 from .db import OrderRepository
 from .events import ROUTING_KEY_ORDER_CREATED, order_created_message
 from .schemas import Order, OrderRequest
@@ -15,9 +17,21 @@ def create_app(repo=None) -> FastAPI:
         repo = OrderRepository(os.environ["DATABASE_URL"])
         repo.init_schema()
 
+    @app.middleware("http")
+    async def time_requests(request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        metrics.REQUEST_DURATION.labels(path=request.url.path).observe(time.time() - start)
+        return response
+
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}
+
+    @app.get("/metrics")
+    def metrics_endpoint():
+        body, content_type = metrics.render()
+        return Response(content=body, media_type=content_type)
 
     @app.post("/orders", status_code=201)
     def create_order(req: OrderRequest) -> Order:
@@ -26,6 +40,7 @@ def create_app(repo=None) -> FastAPI:
         repo.save_with_event(
             order, event_id, ROUTING_KEY_ORDER_CREATED, order_created_message(order, event_id)
         )
+        metrics.ORDERS_CREATED.inc()
         return order
 
     @app.get("/orders/{order_id}")
