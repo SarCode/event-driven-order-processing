@@ -40,7 +40,7 @@ resource "helm_release" "rabbitmq" {
   }
   set {
     name  = "auth.password"
-    value = "orders-dev-password"
+    value = var.app_password
   }
   # Bitnami moved charts to OCI and put current images behind Broadcom's paid registry (Aug 2025).
   # bitnamilegacy images are a temporary free stopgap; revisit before any non-local use.
@@ -67,7 +67,7 @@ resource "helm_release" "postgresql" {
   }
   set {
     name  = "auth.password"
-    value = "orders-dev-password"
+    value = var.app_password
   }
   set {
     name  = "auth.database"
@@ -82,5 +82,17 @@ resource "helm_release" "postgresql" {
   set {
     name  = "global.security.allowInsecureImages"
     value = "true"
+  }
+}
+
+resource "kubernetes_secret" "app_credentials" {
+  metadata {
+    name      = "app-credentials"
+    namespace = kubernetes_namespace.orders.metadata[0].name
+  }
+
+  data = {
+    DATABASE_URL = "postgresql://orders:${var.app_password}@postgres-postgresql:5432/orders"
+    RABBITMQ_URL = "amqp://orders:${var.app_password}@rabbitmq:5672/%2F"
   }
 }

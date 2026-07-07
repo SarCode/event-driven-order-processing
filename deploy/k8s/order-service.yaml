@@ -19,9 +19,9 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
-          env:
-            - name: DATABASE_URL
-              value: postgresql://orders:orders-dev-password@postgres-postgresql:5432/orders
+          envFrom:
+            - secretRef:
+                name: app-credentials
           readinessProbe:
             httpGet:
               path: /healthz
