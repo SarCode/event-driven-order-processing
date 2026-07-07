@@ -119,11 +119,15 @@ resource "helm_release" "kube_prometheus_stack" {
   namespace  = kubernetes_namespace.monitoring.metadata[0].name
   timeout    = 900
 
+  # Deliberate dev shortcut: one shared password across postgres, rabbitmq,
+  # and grafana. Split credentials before any shared or long-lived environment.
   set {
     name  = "grafana.adminPassword"
     value = var.app_password
   }
-  # Scrape PodMonitors/ServiceMonitors from all namespaces without label gating
+  # Scrape PodMonitors/ServiceMonitors from all namespaces without label gating.
+  # Fine for this single-tenant dev cluster; tighten with label selectors if
+  # the cluster ever hosts anything else.
   set {
     name  = "prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues"
     value = "false"
