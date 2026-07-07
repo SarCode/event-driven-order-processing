@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from app.main import create_app
 from fastapi.testclient import TestClient
 
@@ -29,3 +31,15 @@ def test_metrics_endpoint_counts_created_orders():
         return 0.0
 
     assert value(after) - value(before) == 2.0
+
+
+def test_request_duration_labels_use_route_template_not_raw_path():
+    app = create_app(repo=FakeRepo())
+    client = TestClient(app)
+    id_a, id_b = str(uuid4()), str(uuid4())
+    client.get(f"/orders/{id_a}")
+    client.get(f"/orders/{id_b}")
+    text = client.get("/metrics").text
+    assert 'path="/orders/{order_id}"' in text
+    assert id_a not in text
+    assert id_b not in text

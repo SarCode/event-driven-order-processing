@@ -19,9 +19,16 @@ def create_app(repo=None) -> FastAPI:
 
     @app.middleware("http")
     async def time_requests(request: Request, call_next):
-        start = time.time()
-        response = await call_next(request)
-        metrics.REQUEST_DURATION.labels(path=request.url.path).observe(time.time() - start)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        finally:
+            # Label with the matched route template ("/orders/{order_id}") rather
+            # than the raw path, which would mint one series per order id. The
+            # finally block keeps 500s visible to the latency histogram.
+            route = request.scope.get("route")
+            path = route.path if route is not None else request.url.path
+            metrics.REQUEST_DURATION.labels(path=path).observe(time.perf_counter() - start)
         return response
 
     @app.get("/healthz")
