@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: order-service
+  namespace: orders
+spec:
+  namespaceSelector:
+    matchNames: [orders]
+  selector:
+    matchLabels:
+      app: order-service
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: orders-apps
+  namespace: orders
+spec:
+  namespaceSelector:
+    matchNames: [orders]
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [outbox-relay, status-consumer, inventory-worker, payment-worker, notification-worker]
+  podMetricsEndpoints:
+    - port: metrics

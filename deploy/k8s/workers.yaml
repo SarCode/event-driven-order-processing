@@ -20,6 +20,9 @@ spec:
           image: orders/workers:dev
           imagePullPolicy: Never
           command: ["python", "-m", "app.inventory"]
+          ports:
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - secretRef:
                 name: app-credentials
@@ -51,6 +54,9 @@ spec:
           image: orders/workers:dev
           imagePullPolicy: Never
           command: ["python", "-m", "app.payment"]
+          ports:
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - secretRef:
                 name: app-credentials
@@ -82,6 +88,9 @@ spec:
           image: orders/workers:dev
           imagePullPolicy: Never
           command: ["python", "-m", "app.notification"]
+          ports:
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - secretRef:
                 name: app-credentials

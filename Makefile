@@ -25,7 +25,7 @@ kind-load: build
 	kind load docker-image orders/workers:dev --name orders
 
 deploy-k8s:
-	kubectl apply -f deploy/k8s/
+	kubectl apply -R -f deploy/k8s/
 
 smoke-k8s:
 	kubectl -n orders rollout status deploy/order-service --timeout=120s

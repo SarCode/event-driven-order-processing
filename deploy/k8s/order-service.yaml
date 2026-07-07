@@ -18,7 +18,8 @@ spec:
           image: orders/order-service:dev
           imagePullPolicy: Never
           ports:
-            - containerPort: 8000
+            - name: http
+              containerPort: 8000
           envFrom:
             - secretRef:
                 name: app-credentials

@@ -18,6 +18,9 @@ spec:
           image: orders/order-service:dev
           imagePullPolicy: Never
           command: ["python", "-m", "app.outbox_relay"]
+          ports:
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - secretRef:
                 name: app-credentials
@@ -49,6 +52,9 @@ spec:
           image: orders/order-service:dev
           imagePullPolicy: Never
           command: ["python", "-m", "app.status_consumer"]
+          ports:
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - secretRef:
                 name: app-credentials
