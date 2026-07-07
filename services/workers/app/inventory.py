@@ -65,6 +65,9 @@ def make_handler(store):
             reserved = store.reserve(event["sku"], event["quantity"])
             return [_saga_event(event, "inventory.reserved" if reserved else "inventory.rejected")]
         if event["event_type"] == "payment.failed":
+            # No reservation ledger: release trusts that payment.failed only ever
+            # follows inventory.reserved (current topology guarantees it). A manual
+            # DLQ requeue or new payment.failed producer could inflate stock.
             store.release(event["sku"], event["quantity"])
             return []
         return []
