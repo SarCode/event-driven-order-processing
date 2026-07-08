@@ -60,8 +60,11 @@ jobs:
         with:
           terraform_wrapper: false
       - name: Install kind
+        # Version must stay compatible with the cluster the tehcyx terraform
+        # provider creates; an old CLI cannot drive a newer node's containerd
+        # ("failed to detect containerd snapshotter" on kind load).
         run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
       - name: Provision cluster and infra (same terraform as local)
