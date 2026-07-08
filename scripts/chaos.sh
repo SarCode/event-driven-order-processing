@@ -56,6 +56,9 @@ for _ in $(seq 1 "$ORDER_COUNT"); do
 done
 echo "created ${#order_ids[@]} orders: ${order_ids[*]}"
 
+# "Mid-stream" means mid-message-processing: the POSTs above are synchronous,
+# but the saga runs asynchronously off the queue, so the worker dies with
+# events still in flight. This does not race against order creation itself.
 echo "killing inventory-worker pod mid-stream..."
 kubectl -n orders delete pod -l app=inventory-worker
 

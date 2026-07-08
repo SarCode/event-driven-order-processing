@@ -1,3 +1,5 @@
+import threading
+
 import psycopg
 from psycopg_pool import ConnectionPool
 
@@ -43,14 +45,19 @@ class OrderRepository:
     def __init__(self, dsn: str):
         self._dsn = dsn
         self._pool: ConnectionPool | None = None
+        self._pool_lock = threading.Lock()
 
     # Connection churn was the load-test bottleneck: a fresh connect per
     # request put p95 at ~1.4s; the pool keeps it under the 500ms bar.
     # Created lazily so startup-only paths (init_schema, unit tests with a
-    # monkeypatched psycopg.connect) never spin up real connections.
+    # monkeypatched psycopg.connect) never spin up real connections. The lock
+    # matters: sync FastAPI handlers run in a threadpool, and an unguarded
+    # first hit could construct two pools, orphaning one with live connections.
     def _connection(self):
         if self._pool is None:
-            self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10)
+            with self._pool_lock:
+                if self._pool is None:
+                    self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10)
         return self._pool.connection()
 
     def init_schema(self) -> None:
