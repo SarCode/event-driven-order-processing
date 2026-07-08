@@ -4,7 +4,7 @@ metadata:
   name: order-service
   namespace: orders
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: order-service
@@ -28,7 +28,7 @@ spec:
               cpu: 50m
               memory: 64Mi
             limits:
-              cpu: 250m
+              cpu: 500m
               memory: 256Mi
           readinessProbe:
             httpGet:

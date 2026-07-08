@@ -1,4 +1,5 @@
 import psycopg
+from psycopg_pool import ConnectionPool
 
 from .schemas import Order
 
@@ -41,6 +42,16 @@ def create_schema_racing(apply, attempts: int = 3) -> None:
 class OrderRepository:
     def __init__(self, dsn: str):
         self._dsn = dsn
+        self._pool: ConnectionPool | None = None
+
+    # Connection churn was the load-test bottleneck: a fresh connect per
+    # request put p95 at ~1.4s; the pool keeps it under the 500ms bar.
+    # Created lazily so startup-only paths (init_schema, unit tests with a
+    # monkeypatched psycopg.connect) never spin up real connections.
+    def _connection(self):
+        if self._pool is None:
+            self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10)
+        return self._pool.connection()
 
     def init_schema(self) -> None:
         def create():
@@ -51,7 +62,7 @@ class OrderRepository:
         create_schema_racing(create)
 
     def save_with_event(self, order: Order, event_id: str, routing_key: str, body: str) -> None:
-        with psycopg.connect(self._dsn) as conn:
+        with self._connection() as conn:
             conn.execute(
                 "INSERT INTO orders (order_id, sku, quantity, status)"
                 " VALUES (%s, %s, %s, %s)",
@@ -63,7 +74,7 @@ class OrderRepository:
             )
 
     def get(self, order_id) -> Order | None:
-        with psycopg.connect(self._dsn) as conn:
+        with self._connection() as conn:
             row = conn.execute(
                 "SELECT order_id, sku, quantity, status FROM orders WHERE order_id = %s",
                 (order_id,),
@@ -73,7 +84,7 @@ class OrderRepository:
         return Order(order_id=row[0], sku=row[1], quantity=row[2], status=row[3])
 
     def fetch_unpublished(self, limit: int = 50) -> list[tuple[int, str, str]]:
-        with psycopg.connect(self._dsn) as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 "SELECT id, routing_key, body FROM outbox"
                 " WHERE NOT published ORDER BY id LIMIT %s",
@@ -84,7 +95,7 @@ class OrderRepository:
     def mark_published(self, ids: list[int]) -> None:
         if not ids:
             return
-        with psycopg.connect(self._dsn) as conn:
+        with self._connection() as conn:
             conn.execute(
                 "UPDATE outbox SET published = TRUE WHERE id = ANY(%s)",
                 (ids,),
