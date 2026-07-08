@@ -34,6 +34,11 @@ resource "helm_release" "rabbitmq" {
   version    = "16.0.14"
   namespace  = kubernetes_namespace.orders.metadata[0].name
 
+  # The metrics ServiceMonitor below needs the CRDs that kube-prometheus-stack
+  # installs. Locally this landed in two applies; a fresh single apply (CI's
+  # ephemeral kind job) fails without this ordering.
+  depends_on = [helm_release.kube_prometheus_stack]
+
   set {
     name  = "auth.username"
     value = "orders"
