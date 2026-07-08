@@ -78,12 +78,74 @@ repository), the outbox relay batch logic, saga status mapping, consumer
 runtime validation and retry, and all three worker handlers. The smoke
 test covers the real integration path end to end.
 
-## Roadmap
+## Observability
 
-- Phase 3: GitHub Actions CI/CD, images to GHCR, ephemeral kind cluster per PR,
-  secrets management, liveness probes and resource limits on app manifests
-- Phase 4: kube-prometheus-stack, custom Grafana dashboards, alert rules,
-  k6 load tests, chaos experiment, ADRs
+The kind cluster runs a full monitoring stack alongside the app, provisioned
+by the same Terraform config: `kube-prometheus-stack` (Prometheus, Alertmanager,
+Grafana, and the Prometheus Operator) plus RabbitMQ's Prometheus plugin.
+Every service exposes metrics: `order-service` serves `/metrics` on its
+existing port via `prometheus-client`; the outbox relay, status consumer, and
+all three workers each run a metrics HTTP server on port 9464. PodMonitors
+scrape all of them into Prometheus.
+
+**Dashboard.** A provisioned Grafana dashboard, "Order Saga" (uid
+`orders-saga`), has 7 panels: order rate, saga outcomes by status, events
+processed by consumer, DLQ size, queue depth across all queues, API p95
+latency, and dead-lettered events by consumer.
+
+    make grafana   # port-forward kps-grafana to localhost:3000
+
+Log in at `http://localhost:3000` with `admin` / the dev password
+(`orders-dev-password` unless overridden via `TF_VAR_app_password`).
+
+**Alert rules** (Prometheus `PrometheusRule`, group `orders`):
+
+| Alert | Severity | Condition |
+| --- | --- | --- |
+| DeadLetterQueueGrowing | warning | `orders.dlq` has messages for 5m |
+| ConsumerDown | critical | a scrape target in `orders` namespace is down for 3m |
+| ApiHighLatency | warning | POST /orders p95 > 500ms for 10m |
+
+**Load test.** `make load` runs a k6 scenario (10 virtual users sustained,
+~10 rps) against `order-service`. The first run exposed a real bottleneck: a
+fresh Postgres connection opened per request pushed p95 to 1.39s against the
+500ms threshold. Pooling connections with `psycopg_pool` (commit `5417fb0`)
+fixed it: p95 199ms, avg 79ms, 777 requests, 0 failures, all thresholds pass.
+
+**Chaos experiment.** `make chaos` posts 10 orders, then kills the
+`inventory-worker` pod mid-saga while those orders are in flight, and polls
+until every order reaches a terminal status. All 10 orders reached a
+terminal status (10 confirmed) and stock accounting was exact
+(98991 -> 98981, matching the expected 98981) - the deployment's pod restart,
+combined with idempotent consumers and at-least-once redelivery, recovers
+the saga through a worker loss with no stock leak.
+
+**Secrets note.** Terraform state (gitignored, never committed) contains the
+dev password in plaintext; treat any copy of `terraform.tfstate` as sensitive
+even though the repo itself does not track it. Docker Compose intentionally
+uses simpler inline dev credentials (`orders`/`orders`, `guest`/`guest`)
+rather than the Kubernetes path's Terraform-managed secret - a deliberate
+simplification for the fastest local loop, not a pattern to copy for anything
+shared.
+
+See [docs/adr](docs/adr) for the architecture decisions behind this stack:
+[0001](docs/adr/0001-event-driven-architecture-with-rabbitmq.md) (RabbitMQ as
+the SNS/SQS stand-in),
+[0002](docs/adr/0002-transactional-outbox.md) (transactional outbox),
+[0003](docs/adr/0003-local-kind-over-cloud.md) (local kind over cloud EKS),
+[0004](docs/adr/0004-bitnami-oci-workaround.md) (Bitnami OCI/image workaround).
+
+## Ideas / future work
+
+- Real cloud deployment (EKS, RDS, managed SNS/SQS) to validate the IAM,
+  networking, and load-balancer story that kind cannot exercise
+- OpenTelemetry tracing across the saga, to replace log-reading with a
+  single trace per order
+- A schema registry for event payloads instead of implicit versioning
+- Connection pooling for the workers (order-service already has it; the
+  workers still open connections per operation)
+- DLQ replay tooling, so dead-lettered messages can be inspected and
+  reprocessed instead of only alerted on
 
 ## Troubleshooting
 
