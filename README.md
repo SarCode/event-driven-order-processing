@@ -18,6 +18,8 @@ stand-ins and deployed to a Terraform-provisioned Kubernetes cluster.
 
 ## Architecture
 
+Full design rationale and implementation logic: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ```
 POST /orders -> order-service -> Postgres (orders + outbox, one transaction)
                                      |
