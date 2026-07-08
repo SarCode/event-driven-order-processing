@@ -1,5 +1,8 @@
 # Event-Driven Order Processing
 
+![ci](https://github.com/SarCode/event-driven-order-processing/actions/workflows/ci.yml/badge.svg)
+![cd](https://github.com/SarCode/event-driven-order-processing/actions/workflows/cd.yml/badge.svg)
+
 Local recreation of the AWS event-driven architecture whitepaper pattern
 (API Gateway -> SNS/SQS -> Lambda consumers -> RDS), built with open-source
 stand-ins and deployed to a Terraform-provisioned Kubernetes cluster.
@@ -77,6 +80,21 @@ Unit tests cover schemas, event serialization, API behavior (with a fake
 repository), the outbox relay batch logic, saga status mapping, consumer
 runtime validation and retry, and all three worker handlers. The smoke
 test covers the real integration path end to end.
+
+## CI/CD
+
+Every push and pull request runs [ci.yml](.github/workflows/ci.yml):
+
+1. **lint** - ruff over both services
+2. **test** - pytest matrix (order-service, workers)
+3. **e2e-compose** - full stack via Docker Compose + saga smoke test
+4. **e2e-kind** - the same Terraform config used locally provisions an
+   ephemeral kind cluster inside the runner; images are built, loaded, and
+   the saga smoke test runs in-cluster
+
+On main, [cd.yml](.github/workflows/cd.yml) publishes both images to GHCR
+(`ghcr.io/sarcode/event-driven-order-processing/{order-service,workers}`)
+tagged with the commit SHA and `latest`.
 
 ## Observability
 
