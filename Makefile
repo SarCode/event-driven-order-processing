@@ -35,18 +35,27 @@ smoke-k8s:
 	kubectl -n orders rollout status deploy/payment-worker --timeout=120s
 	kubectl -n orders rollout status deploy/notification-worker --timeout=120s
 	kubectl -n orders port-forward svc/order-service 8000:8000 & \
+	PF_PID=$$!; \
 	sleep 3 && ./scripts/smoke.sh; \
-	kill %1
+	STATUS=$$?; \
+	kill $$PF_PID; \
+	exit $$STATUS
 
 grafana:
 	kubectl -n monitoring port-forward svc/kps-grafana 3000:80
 
 load:
 	kubectl -n orders port-forward svc/order-service 8000:8000 & \
+	PF_PID=$$!; \
 	sleep 3 && k6 run scripts/load.js; \
-	kill %1
+	STATUS=$$?; \
+	kill $$PF_PID; \
+	exit $$STATUS
 
 chaos:
 	kubectl -n orders port-forward svc/order-service 8000:8000 & \
+	PF_PID=$$!; \
 	sleep 3 && ./scripts/chaos.sh; \
-	kill %1
+	STATUS=$$?; \
+	kill $$PF_PID; \
+	exit $$STATUS
